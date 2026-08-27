@@ -15,23 +15,23 @@ async function apiRequest(params = {}) {
 
   const query = searchParams.toString();
 
-  const url = `${API_BASE_URL}${query ? `?${query}` : ""}`;
-
-  const response = await fetch(url, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-    },
-  });
+  const response = await fetch(
+    `${API_BASE_URL}${query ? `?${query}` : ""}`,
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    }
+  );
 
   let data;
 
   try {
     data = await response.json();
   } catch {
-    throw new Error(
-      "Réponse invalide du serveur."
-    );
+    throw new Error("Réponse invalide du serveur.");
   }
 
   if (!response.ok) {
@@ -44,12 +44,18 @@ async function apiRequest(params = {}) {
   return data;
 }
 
+/*
+ * MATCHS EN DIRECT
+ */
 export async function getLiveMatches() {
   return apiRequest({
     status: "LIVE",
   });
 }
 
+/*
+ * MATCHS D'UNE DATE
+ */
 export async function getMatchesByDate(date) {
   return apiRequest({
     dateFrom: date,
@@ -57,12 +63,20 @@ export async function getMatchesByDate(date) {
   });
 }
 
+/*
+ * MATCH PAR ID
+ */
 export async function getMatchById(id) {
   return apiRequest({
     id,
   });
 }
 
+/*
+ * COMPÉTITIONS
+ */
 export async function getCompetitions() {
-  return apiRequest({});
+  return apiRequest({
+    competitions: "PD",
+  });
 }
