@@ -4,58 +4,51 @@ async function apiRequest(params = {}) {
   const searchParams = new URLSearchParams();
 
   Object.entries(params).forEach(([key, value]) => {
-    if (
-      value !== undefined &&
-      value !== null &&
-      value !== ""
-    ) {
+    if (value !== undefined && value !== null && value !== "") {
       searchParams.set(key, value);
     }
   });
 
-  const query = searchParams.toString();
+  const url = `${API_BASE_URL}?${searchParams.toString()}`;
 
-  const response = await fetch(
-    `${API_BASE_URL}${query ? `?${query}` : ""}`,
-    {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
-      cache: "no-store",
-    }
-  );
+  console.log("Football API request:", url);
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+    },
+    cache: "no-store",
+  });
+
+  const text = await response.text();
 
   let data;
 
   try {
-    data = await response.json();
+    data = JSON.parse(text);
   } catch {
+    console.error("Réponse serveur:", text);
     throw new Error("Réponse invalide du serveur.");
   }
 
+  console.log("Football API response:", data);
+
   if (!response.ok) {
     throw new Error(
-      data?.error ||
-        `Erreur API (${response.status})`
+      data?.error || `Erreur API (${response.status})`
     );
   }
 
   return data;
 }
 
-/*
- * MATCHS EN DIRECT
- */
 export async function getLiveMatches() {
   return apiRequest({
     status: "LIVE",
   });
 }
 
-/*
- * MATCHS D'UNE DATE
- */
 export async function getMatchesByDate(date) {
   return apiRequest({
     dateFrom: date,
@@ -63,20 +56,12 @@ export async function getMatchesByDate(date) {
   });
 }
 
-/*
- * MATCH PAR ID
- */
 export async function getMatchById(id) {
   return apiRequest({
     id,
   });
 }
 
-/*
- * COMPÉTITIONS
- */
 export async function getCompetitions() {
-  return apiRequest({
-    competitions: "PD",
-  });
+  return apiRequest({});
 }
