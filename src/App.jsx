@@ -5,15 +5,26 @@ import {
 } from "./services/footballApi";
 
 function formatDate(date) {
-  return date.toISOString().split("T")[0];
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function formatMatchTime(utcDate) {
+  if (!utcDate) return "--:--";
+
+  return new Date(utcDate).toLocaleTimeString("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function App() {
   const [page, setPage] = useState("live");
   const [matches, setMatches] = useState([]);
-  const [selectedDate, setSelectedDate] = useState(
-    new Date()
-  );
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -24,9 +35,13 @@ function App() {
 
       const data = await getLiveMatches();
 
-      setMatches(data.matches || []);
+      console.log("LIVE API:", data);
+
+      setMatches(Array.isArray(data?.matches) ? data.matches : []);
     } catch (err) {
-      setError(err.message);
+      console.error(err);
+      setError(err.message || "Erreur API");
+      setMatches([]);
     } finally {
       setLoading(false);
     }
@@ -37,13 +52,19 @@ function App() {
       setLoading(true);
       setError("");
 
-      const data = await getMatchesByDate(
-        formatDate(date)
-      );
+      const dateString = formatDate(date);
 
-      setMatches(data.matches || []);
+      console.log("CALENDAR DATE:", dateString);
+
+      const data = await getMatchesByDate(dateString);
+
+      console.log("CALENDAR API:", data);
+
+      setMatches(Array.isArray(data?.matches) ? data.matches : []);
     } catch (err) {
-      setError(err.message);
+      console.error(err);
+      setError(err.message || "Erreur API");
+      setMatches([]);
     } finally {
       setLoading(false);
     }
@@ -62,15 +83,41 @@ function App() {
   function changeDate(days) {
     const newDate = new Date(selectedDate);
 
-    newDate.setDate(
-      newDate.getDate() + days
-    );
+    newDate.setDate(newDate.getDate() + days);
 
     setSelectedDate(newDate);
   }
 
   function handlePageChange(newPage) {
     setPage(newPage);
+  }
+
+  function getStatusLabel(status) {
+    switch (status) {
+      case "TIMED":
+        return "À venir";
+
+      case "IN_PLAY":
+        return "EN DIRECT";
+
+      case "PAUSED":
+        return "MI-TEMPS";
+
+      case "FINISHED":
+        return "TERMINÉ";
+
+      case "SUSPENDED":
+        return "SUSPENDU";
+
+      case "POSTPONED":
+        return "REPORTÉ";
+
+      case "CANCELLED":
+        return "ANNULÉ";
+
+      default:
+        return status || "INCONNU";
+    }
   }
 
   return (
@@ -80,6 +127,7 @@ function App() {
         <div className="header-content">
 
           <div className="brand">
+
             <div className="brand-icon">
               ⚽
             </div>
@@ -93,6 +141,7 @@ function App() {
                 Live scores & fixtures
               </p>
             </div>
+
           </div>
 
           <div className="live-indicator">
@@ -109,37 +158,25 @@ function App() {
           className={`nav-button ${
             page === "live" ? "active" : ""
           }`}
-          onClick={() =>
-            handlePageChange("live")
-          }
+          onClick={() => handlePageChange("live")}
         >
           🔴 Live
         </button>
 
         <button
           className={`nav-button ${
-            page === "calendar"
-              ? "active"
-              : ""
+            page === "calendar" ? "active" : ""
           }`}
-          onClick={() =>
-            handlePageChange("calendar")
-          }
+          onClick={() => handlePageChange("calendar")}
         >
           📅 Calendrier
         </button>
 
         <button
           className={`nav-button ${
-            page === "competitions"
-              ? "active"
-              : ""
+            page === "competitions" ? "active" : ""
           }`}
-          onClick={() =>
-            handlePageChange(
-              "competitions"
-            )
-          }
+          onClick={() => handlePageChange("competitions")}
         >
           🏆 Compétitions
         </button>
@@ -188,11 +225,7 @@ function App() {
 
               <button
                 className="refresh-button"
-                onClick={() =>
-                  loadCalendar(
-                    selectedDate
-                  )
-                }
+                onClick={() => loadCalendar(selectedDate)}
               >
                 ↻ Actualiser
               </button>
@@ -203,8 +236,7 @@ function App() {
               style={{
                 display: "flex",
                 alignItems: "center",
-                justifyContent:
-                  "space-between",
+                justifyContent: "space-between",
                 gap: "10px",
                 marginTop: "20px",
                 marginBottom: "20px",
@@ -213,30 +245,23 @@ function App() {
 
               <button
                 className="refresh-button"
-                onClick={() =>
-                  changeDate(-1)
-                }
+                onClick={() => changeDate(-1)}
               >
                 ← Jour précédent
               </button>
 
               <strong>
-                {selectedDate.toLocaleDateString(
-                  "fr-FR",
-                  {
-                    weekday: "long",
-                    day: "2-digit",
-                    month: "long",
-                    year: "numeric",
-                  }
-                )}
+                {selectedDate.toLocaleDateString("fr-FR", {
+                  weekday: "long",
+                  day: "2-digit",
+                  month: "long",
+                  year: "numeric",
+                })}
               </strong>
 
               <button
                 className="refresh-button"
-                onClick={() =>
-                  changeDate(1)
-                }
+                onClick={() => changeDate(1)}
               >
                 Jour suivant →
               </button>
@@ -255,9 +280,8 @@ function App() {
               </h2>
 
               <p>
-                Les compétitions seront
-                ajoutées dans la prochaine
-                étape.
+                Les compétitions seront ajoutées
+                dans la prochaine étape.
               </p>
             </div>
 
@@ -327,7 +351,9 @@ function App() {
 
         {!loading &&
           !error &&
+          page !== "competitions" &&
           matches.length > 0 && (
+
             <section
               style={{
                 display: "grid",
@@ -335,128 +361,141 @@ function App() {
               }}
             >
 
-              {matches.map((match) => (
+              {matches.map((match) => {
 
-                <article
-                  key={match.id}
-                  className="match-card"
-                  style={{
-                    padding: "18px",
-                    borderRadius: "16px",
-                    background: "#0f1d2e",
-                    border:
-                      "1px solid #1e293b",
-                  }}
-                >
+                const homeScore =
+                  match.score?.fullTime?.home;
 
-                  <div
+                const awayScore =
+                  match.score?.fullTime?.away;
+
+                return (
+                  <article
+                    key={match.id}
+                    className="match-card"
                     style={{
-                      color: "#94a3b8",
-                      fontSize: "13px",
-                      marginBottom: "12px",
-                    }}
-                  >
-                    {match.competition?.name ||
-                      "Compétition"}
-                  </div>
-
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns:
-                        "1fr auto 1fr",
-                      alignItems: "center",
-                      gap: "15px",
-                      textAlign: "center",
+                      padding: "18px",
+                      borderRadius: "16px",
+                      background: "#0f1d2e",
+                      border: "1px solid #1e293b",
                     }}
                   >
 
-                    <div>
+                    <div
+                      style={{
+                        color: "#94a3b8",
+                        fontSize: "13px",
+                        marginBottom: "12px",
+                        display: "flex",
+                        justifyContent: "space-between",
+                      }}
+                    >
+
+                      <span>
+                        {match.competition?.name ||
+                          "Compétition"}
+                      </span>
+
+                      <span>
+                        {formatMatchTime(match.utcDate)}
+                      </span>
+
+                    </div>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns:
+                          "1fr auto 1fr",
+                        alignItems: "center",
+                        gap: "15px",
+                        textAlign: "center",
+                      }}
+                    >
+
                       <div>
+
                         {match.homeTeam?.crest && (
                           <img
-                            src={
-                              match.homeTeam
-                                .crest
-                            }
+                            src={match.homeTeam.crest}
                             alt=""
                             style={{
                               width: "45px",
                               height: "45px",
-                              objectFit:
-                                "contain",
+                              objectFit: "contain",
+                              marginBottom: "8px",
                             }}
                           />
                         )}
+
+                        <div>
+                          <strong>
+                            {match.homeTeam?.shortName ||
+                              match.homeTeam?.name ||
+                              "Équipe domicile"}
+                          </strong>
+                        </div>
+
                       </div>
 
-                      <strong>
-                        {match.homeTeam?.shortName ||
-                          match.homeTeam?.name}
-                      </strong>
-                    </div>
-
-                    <div>
-
-                      <strong
-                        style={{
-                          fontSize: "24px",
-                        }}
-                      >
-                        {match.score?.fullTime
-                          ?.home ?? "-"}
-                        {" - "}
-                        {match.score?.fullTime
-                          ?.away ?? "-"}
-                      </strong>
-
-                      <div
-                        style={{
-                          marginTop: "6px",
-                          color:
-                            match.status ===
-                            "FINISHED"
-                              ? "#94a3b8"
-                              : "#22c55e",
-                          fontSize: "12px",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        {match.status}
-                      </div>
-
-                    </div>
-
-                    <div>
                       <div>
+
+                        <strong
+                          style={{
+                            fontSize: "24px",
+                          }}
+                        >
+                          {homeScore ?? "-"}
+                          {" - "}
+                          {awayScore ?? "-"}
+                        </strong>
+
+                        <div
+                          style={{
+                            marginTop: "6px",
+                            color:
+                              match.status === "FINISHED"
+                                ? "#94a3b8"
+                                : "#22c55e",
+                            fontSize: "12px",
+                            fontWeight: "bold",
+                          }}
+                        >
+                          {getStatusLabel(match.status)}
+                        </div>
+
+                      </div>
+
+                      <div>
+
                         {match.awayTeam?.crest && (
                           <img
-                            src={
-                              match.awayTeam
-                                .crest
-                            }
+                            src={match.awayTeam.crest}
                             alt=""
                             style={{
                               width: "45px",
                               height: "45px",
-                              objectFit:
-                                "contain",
+                              objectFit: "contain",
+                              marginBottom: "8px",
                             }}
                           />
                         )}
+
+                        <div>
+                          <strong>
+                            {match.awayTeam?.shortName ||
+                              match.awayTeam?.name ||
+                              "Équipe extérieure"}
+                          </strong>
+                        </div>
+
                       </div>
 
-                      <strong>
-                        {match.awayTeam?.shortName ||
-                          match.awayTeam?.name}
-                      </strong>
                     </div>
 
-                  </div>
-
-                </article>
-
-              ))}
+                  </article>
+                );
+              })}
 
             </section>
           )}
