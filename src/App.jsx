@@ -13,7 +13,7 @@ function formatDate(date) {
 }
 
 function formatMatchTime(utcDate) {
-  if (!utcDate) return "--:--";
+  if (!utcDate) return "";
 
   return new Date(utcDate).toLocaleTimeString("fr-FR", {
     hour: "2-digit",
@@ -35,12 +35,12 @@ function App() {
 
       const data = await getLiveMatches();
 
-      console.log("LIVE API:", data);
+      console.log("LIVE DATA:", data);
 
       setMatches(Array.isArray(data?.matches) ? data.matches : []);
     } catch (err) {
-      console.error(err);
-      setError(err.message || "Erreur API");
+      console.error("Live error:", err);
+      setError(err.message || "Erreur inconnue.");
       setMatches([]);
     } finally {
       setLoading(false);
@@ -52,18 +52,18 @@ function App() {
       setLoading(true);
       setError("");
 
-      const dateString = formatDate(date);
+      const formattedDate = formatDate(date);
 
-      console.log("CALENDAR DATE:", dateString);
+      console.log("CALENDAR DATE:", formattedDate);
 
-      const data = await getMatchesByDate(dateString);
+      const data = await getMatchesByDate(formattedDate);
 
-      console.log("CALENDAR API:", data);
+      console.log("CALENDAR DATA:", data);
 
       setMatches(Array.isArray(data?.matches) ? data.matches : []);
     } catch (err) {
-      console.error(err);
-      setError(err.message || "Erreur API");
+      console.error("Calendar error:", err);
+      setError(err.message || "Erreur inconnue.");
       setMatches([]);
     } finally {
       setLoading(false);
@@ -71,13 +71,23 @@ function App() {
   }
 
   useEffect(() => {
-    if (page === "live") {
-      loadLive();
-    }
-
     if (page === "calendar") {
       loadCalendar(selectedDate);
+      return;
     }
+
+    if (page === "live") {
+      loadLive();
+
+      const interval = setInterval(() => {
+        loadLive();
+      }, 30000);
+
+      return () => clearInterval(interval);
+    }
+
+    setLoading(false);
+    setMatches([]);
   }, [page, selectedDate]);
 
   function changeDate(days) {
@@ -90,70 +100,180 @@ function App() {
 
   function handlePageChange(newPage) {
     setPage(newPage);
+    setError("");
   }
 
-  function getStatusLabel(status) {
-    switch (status) {
-      case "TIMED":
-        return "À venir";
+  function renderMatch(match) {
+    const homeName =
+      match?.homeTeam?.shortName ||
+      match?.homeTeam?.name ||
+      "Équipe domicile";
 
-      case "IN_PLAY":
-        return "EN DIRECT";
+    const awayName =
+      match?.awayTeam?.shortName ||
+      match?.awayTeam?.name ||
+      "Équipe extérieure";
 
-      case "PAUSED":
-        return "MI-TEMPS";
+    const homeScore = match?.score?.fullTime?.home;
+    const awayScore = match?.score?.fullTime?.away;
 
-      case "FINISHED":
-        return "TERMINÉ";
+    const isLive =
+      match?.status === "IN_PLAY" ||
+      match?.status === "PAUSED" ||
+      match?.status === "LIVE";
 
-      case "SUSPENDED":
-        return "SUSPENDU";
+    return (
+      <article
+        key={match.id}
+        className="match-card"
+        style={{
+          padding: "18px",
+          borderRadius: "16px",
+          background: "#0f1d2e",
+          border: "1px solid #1e293b",
+          color: "#ffffff",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "15px",
+            color: "#94a3b8",
+            fontSize: "13px",
+          }}
+        >
+          <span>
+            {match?.competition?.name || "Compétition"}
+          </span>
 
-      case "POSTPONED":
-        return "REPORTÉ";
+          <span
+            style={{
+              fontWeight: "bold",
+              color: isLive ? "#22c55e" : "#94a3b8",
+            }}
+          >
+            {isLive
+              ? "🔴 EN DIRECT"
+              : match?.status || "PROGRAMMÉ"}
+          </span>
+        </div>
 
-      case "CANCELLED":
-        return "ANNULÉ";
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr auto 1fr",
+            alignItems: "center",
+            gap: "15px",
+            textAlign: "center",
+          }}
+        >
+          <div>
+            {match?.homeTeam?.crest && (
+              <img
+                src={match.homeTeam.crest}
+                alt={homeName}
+                style={{
+                  width: "50px",
+                  height: "50px",
+                  objectFit: "contain",
+                  marginBottom: "8px",
+                }}
+              />
+            )}
 
-      default:
-        return status || "INCONNU";
-    }
+            <div>
+              <strong>{homeName}</strong>
+            </div>
+          </div>
+
+          <div>
+            <div
+              style={{
+                fontSize: "26px",
+                fontWeight: "bold",
+              }}
+            >
+              {homeScore ?? "-"} - {awayScore ?? "-"}
+            </div>
+
+            {!isLive && match?.utcDate && (
+              <div
+                style={{
+                  marginTop: "6px",
+                  color: "#94a3b8",
+                  fontSize: "12px",
+                }}
+              >
+                🕐 {formatMatchTime(match.utcDate)}
+              </div>
+            )}
+
+            {isLive && (
+              <div
+                style={{
+                  marginTop: "6px",
+                  color: "#22c55e",
+                  fontSize: "12px",
+                  fontWeight: "bold",
+                }}
+              >
+                MATCH EN COURS
+              </div>
+            )}
+          </div>
+
+          <div>
+            {match?.awayTeam?.crest && (
+              <img
+                src={match.awayTeam.crest}
+                alt={awayName}
+                style={{
+                  width: "50px",
+                  height: "50px",
+                  objectFit: "contain",
+                  marginBottom: "8px",
+                }}
+              />
+            )}
+
+            <div>
+              <strong>{awayName}</strong>
+            </div>
+          </div>
+        </div>
+      </article>
+    );
   }
 
   return (
-    <div className="app">
-
+    <div
+      className="app"
+      style={{
+        minHeight: "100vh",
+      }}
+    >
       <header className="header">
         <div className="header-content">
-
           <div className="brand">
-
-            <div className="brand-icon">
-              ⚽
-            </div>
+            <div className="brand-icon">⚽</div>
 
             <div>
-              <h1>
-                Football Match Center
-              </h1>
+              <h1>Football Match Center</h1>
 
-              <p>
-                Live scores & fixtures
-              </p>
+              <p>Live scores & fixtures</p>
             </div>
-
           </div>
 
           <div className="live-indicator">
             <span></span>
             LIVE
           </div>
-
         </div>
       </header>
 
       <nav className="navigation">
-
         <button
           className={`nav-button ${
             page === "live" ? "active" : ""
@@ -176,25 +296,23 @@ function App() {
           className={`nav-button ${
             page === "competitions" ? "active" : ""
           }`}
-          onClick={() => handlePageChange("competitions")}
+          onClick={() =>
+            handlePageChange("competitions")
+          }
         >
           🏆 Compétitions
         </button>
-
       </nav>
 
       <main className="main-content">
-
         {page === "live" && (
           <section className="page-header">
-
             <div>
-              <h2>
-                Matchs en direct
-              </h2>
+              <h2>Matchs en direct</h2>
 
               <p>
-                Matchs actuellement en cours
+                Actualisation automatique toutes les
+                30 secondes
               </p>
             </div>
 
@@ -204,19 +322,14 @@ function App() {
             >
               ↻ Actualiser
             </button>
-
           </section>
         )}
 
         {page === "calendar" && (
           <section>
-
             <div className="page-header">
-
               <div>
-                <h2>
-                  📅 Calendrier
-                </h2>
+                <h2>📅 Calendrier</h2>
 
                 <p>
                   Matchs du jour sélectionné
@@ -225,11 +338,12 @@ function App() {
 
               <button
                 className="refresh-button"
-                onClick={() => loadCalendar(selectedDate)}
+                onClick={() =>
+                  loadCalendar(selectedDate)
+                }
               >
                 ↻ Actualiser
               </button>
-
             </div>
 
             <div
@@ -242,7 +356,6 @@ function App() {
                 marginBottom: "20px",
               }}
             >
-
               <button
                 className="refresh-button"
                 onClick={() => changeDate(-1)}
@@ -251,12 +364,15 @@ function App() {
               </button>
 
               <strong>
-                {selectedDate.toLocaleDateString("fr-FR", {
-                  weekday: "long",
-                  day: "2-digit",
-                  month: "long",
-                  year: "numeric",
-                })}
+                {selectedDate.toLocaleDateString(
+                  "fr-FR",
+                  {
+                    weekday: "long",
+                    day: "2-digit",
+                    month: "long",
+                    year: "numeric",
+                  }
+                )}
               </strong>
 
               <button
@@ -265,63 +381,43 @@ function App() {
               >
                 Jour suivant →
               </button>
-
             </div>
-
           </section>
         )}
 
         {page === "competitions" && (
           <section className="page-header">
-
             <div>
-              <h2>
-                🏆 Compétitions
-              </h2>
+              <h2>🏆 Compétitions</h2>
 
               <p>
                 Les compétitions seront ajoutées
                 dans la prochaine étape.
               </p>
             </div>
-
           </section>
         )}
 
         {loading && (
           <section className="empty-state">
+            <div className="empty-icon">⚽</div>
 
-            <div className="empty-icon">
-              ⚽
-            </div>
-
-            <h3>
-              Chargement...
-            </h3>
+            <h3>Chargement...</h3>
 
             <p>
               Récupération des données
               football-data.org
             </p>
-
           </section>
         )}
 
         {!loading && error && (
           <section className="empty-state">
+            <div className="empty-icon">⚠️</div>
 
-            <div className="empty-icon">
-              ⚠️
-            </div>
+            <h3>Erreur</h3>
 
-            <h3>
-              Erreur
-            </h3>
-
-            <p>
-              {error}
-            </p>
-
+            <p>{error}</p>
           </section>
         )}
 
@@ -330,10 +426,7 @@ function App() {
           page !== "competitions" &&
           matches.length === 0 && (
             <section className="empty-state">
-
-              <div className="empty-icon">
-                ⚽
-              </div>
+              <div className="empty-icon">⚽</div>
 
               <h3>
                 {page === "live"
@@ -342,161 +435,22 @@ function App() {
               </h3>
 
               <p>
-                Aucune donnée disponible
-                pour cette sélection.
+                Aucune donnée disponible pour cette
+                sélection.
               </p>
-
             </section>
           )}
 
         {!loading &&
           !error &&
-          page !== "competitions" &&
           matches.length > 0 && (
-
             <section
               style={{
                 display: "grid",
                 gap: "15px",
               }}
             >
-
-              {matches.map((match) => {
-
-                const homeScore =
-                  match.score?.fullTime?.home;
-
-                const awayScore =
-                  match.score?.fullTime?.away;
-
-                return (
-                  <article
-                    key={match.id}
-                    className="match-card"
-                    style={{
-                      padding: "18px",
-                      borderRadius: "16px",
-                      background: "#0f1d2e",
-                      border: "1px solid #1e293b",
-                    }}
-                  >
-
-                    <div
-                      style={{
-                        color: "#94a3b8",
-                        fontSize: "13px",
-                        marginBottom: "12px",
-                        display: "flex",
-                        justifyContent: "space-between",
-                      }}
-                    >
-
-                      <span>
-                        {match.competition?.name ||
-                          "Compétition"}
-                      </span>
-
-                      <span>
-                        {formatMatchTime(match.utcDate)}
-                      </span>
-
-                    </div>
-
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns:
-                          "1fr auto 1fr",
-                        alignItems: "center",
-                        gap: "15px",
-                        textAlign: "center",
-                      }}
-                    >
-
-                      <div>
-
-                        {match.homeTeam?.crest && (
-                          <img
-                            src={match.homeTeam.crest}
-                            alt=""
-                            style={{
-                              width: "45px",
-                              height: "45px",
-                              objectFit: "contain",
-                              marginBottom: "8px",
-                            }}
-                          />
-                        )}
-
-                        <div>
-                          <strong>
-                            {match.homeTeam?.shortName ||
-                              match.homeTeam?.name ||
-                              "Équipe domicile"}
-                          </strong>
-                        </div>
-
-                      </div>
-
-                      <div>
-
-                        <strong
-                          style={{
-                            fontSize: "24px",
-                          }}
-                        >
-                          {homeScore ?? "-"}
-                          {" - "}
-                          {awayScore ?? "-"}
-                        </strong>
-
-                        <div
-                          style={{
-                            marginTop: "6px",
-                            color:
-                              match.status === "FINISHED"
-                                ? "#94a3b8"
-                                : "#22c55e",
-                            fontSize: "12px",
-                            fontWeight: "bold",
-                          }}
-                        >
-                          {getStatusLabel(match.status)}
-                        </div>
-
-                      </div>
-
-                      <div>
-
-                        {match.awayTeam?.crest && (
-                          <img
-                            src={match.awayTeam.crest}
-                            alt=""
-                            style={{
-                              width: "45px",
-                              height: "45px",
-                              objectFit: "contain",
-                              marginBottom: "8px",
-                            }}
-                          />
-                        )}
-
-                        <div>
-                          <strong>
-                            {match.awayTeam?.shortName ||
-                              match.awayTeam?.name ||
-                              "Équipe extérieure"}
-                          </strong>
-                        </div>
-
-                      </div>
-
-                    </div>
-
-                  </article>
-                );
-              })}
-
+              {matches.map(renderMatch)}
             </section>
           )}
 
@@ -511,7 +465,6 @@ function App() {
         >
           Data provided by football-data.org
         </footer>
-
       </main>
     </div>
   );
