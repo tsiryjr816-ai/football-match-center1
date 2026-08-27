@@ -1,60 +1,68 @@
-const API_BASE_URL = "https://api.football-data.org/v4";
+const API_BASE_URL = "/api/football";
 
-const API_KEY = import.meta.env.VITE_FOOTBALL_API_KEY;
+async function apiRequest(params = {}) {
+  const searchParams = new URLSearchParams();
 
-async function apiRequest(endpoint) {
-  if (!API_KEY) {
-    throw new Error("API key football-data.org manquante.");
-  }
-
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    method: "GET",
-    headers: {
-      "X-Auth-Token": API_KEY,
-    },
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      searchParams.set(key, value);
+    }
   });
 
-  if (response.status === 401) {
-    throw new Error("API key invalide.");
-  }
+  const query = searchParams.toString();
 
-  if (response.status === 403) {
-    throw new Error("Accès API refusé.");
-  }
-
-  if (response.status === 429) {
-    throw new Error("Limite API atteinte. Réessayez plus tard.");
-  }
-
-  if (!response.ok) {
-    throw new Error(`Erreur API: ${response.status}`);
-  }
+  const response = await fetch(
+    `${API_BASE_URL}${query ? `?${query}` : ""}`
+  );
 
   const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data?.error || "Erreur lors de la connexion à l'API."
+    );
+  }
 
   return data;
 }
 
-export async function getMatches(params = "") {
-  return apiRequest(`/matches${params}`);
-}
-
 export async function getLiveMatches() {
-  return apiRequest(
-    "/matches?status=IN_PLAY,PAUSED"
-  );
+  return apiRequest({
+    status: "LIVE"
+  });
 }
 
 export async function getMatchesByDate(date) {
-  return apiRequest(
-    `/matches?dateFrom=${date}&dateTo=${date}`
-  );
+  return apiRequest({
+    dateFrom: date,
+    dateTo: date
+  });
 }
 
 export async function getMatchById(id) {
-  return apiRequest(`/matches/${id}`);
+  const response = await fetch(`/api/football?id=${id}`);
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data?.error || "Impossible de récupérer le match."
+    );
+  }
+
+  return data;
 }
 
 export async function getCompetitions() {
-  return apiRequest("/competitions");
+  const response = await fetch(
+    "https://api.football-data.org/v4/competitions"
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      "Impossible de récupérer les compétitions."
+    );
+  }
+
+  return response.json();
 }
