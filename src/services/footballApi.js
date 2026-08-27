@@ -4,14 +4,20 @@ async function apiRequest(params = {}) {
   const searchParams = new URLSearchParams();
 
   Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== "") {
-      searchParams.set(key, value);
+    if (
+      value !== undefined &&
+      value !== null &&
+      value !== ""
+    ) {
+      searchParams.set(key, String(value));
     }
   });
 
-  const url = `${API_BASE_URL}?${searchParams.toString()}`;
+  const query = searchParams.toString();
 
-  console.log("Football API request:", url);
+  const url = query
+    ? `${API_BASE_URL}?${query}`
+    : API_BASE_URL;
 
   const response = await fetch(url, {
     method: "GET",
@@ -28,15 +34,15 @@ async function apiRequest(params = {}) {
   try {
     data = JSON.parse(text);
   } catch {
-    console.error("Réponse serveur:", text);
-    throw new Error("Réponse invalide du serveur.");
+    throw new Error(
+      "Réponse invalide du serveur."
+    );
   }
-
-  console.log("Football API response:", data);
 
   if (!response.ok) {
     throw new Error(
-      data?.error || `Erreur API (${response.status})`
+      data?.error ||
+        `Erreur API (${response.status})`
     );
   }
 
