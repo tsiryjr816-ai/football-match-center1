@@ -4,22 +4,40 @@ async function apiRequest(params = {}) {
   const searchParams = new URLSearchParams();
 
   Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== "") {
+    if (
+      value !== undefined &&
+      value !== null &&
+      value !== ""
+    ) {
       searchParams.set(key, value);
     }
   });
 
   const query = searchParams.toString();
 
-  const response = await fetch(
-    `${API_BASE_URL}${query ? `?${query}` : ""}`
-  );
+  const url = `${API_BASE_URL}${query ? `?${query}` : ""}`;
 
-  const data = await response.json();
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  let data;
+
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error(
+      "Réponse invalide du serveur."
+    );
+  }
 
   if (!response.ok) {
     throw new Error(
-      data?.error || "Erreur lors de la connexion à l'API."
+      data?.error ||
+        `Erreur API (${response.status})`
     );
   }
 
@@ -28,41 +46,23 @@ async function apiRequest(params = {}) {
 
 export async function getLiveMatches() {
   return apiRequest({
-    status: "LIVE"
+    status: "LIVE",
   });
 }
 
 export async function getMatchesByDate(date) {
   return apiRequest({
     dateFrom: date,
-    dateTo: date
+    dateTo: date,
   });
 }
 
 export async function getMatchById(id) {
-  const response = await fetch(`/api/football?id=${id}`);
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data?.error || "Impossible de récupérer le match."
-    );
-  }
-
-  return data;
+  return apiRequest({
+    id,
+  });
 }
 
 export async function getCompetitions() {
-  const response = await fetch(
-    "https://api.football-data.org/v4/competitions"
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      "Impossible de récupérer les compétitions."
-    );
-  }
-
-  return response.json();
+  return apiRequest({});
 }
