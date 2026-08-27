@@ -3,29 +3,57 @@ export default async function handler(req, res) {
 
   if (!apiKey) {
     return res.status(500).json({
-      error: "FOOTBALL_DATA_API_KEY is not configured",
+      error: "API key non configurée sur le serveur."
     });
   }
 
   try {
-    const query = new URLSearchParams(req.query).toString();
+    const params = new URLSearchParams();
 
-    const url = `https://api.football-data.org/v4/matches${
-      query ? `?${query}` : ""
-    }`;
+    const allowedParams = [
+      "status",
+      "dateFrom",
+      "dateTo",
+      "competitions",
+      "ids",
+      "limit"
+    ];
+
+    for (const key of allowedParams) {
+      const value = req.query?.[key];
+
+      if (value !== undefined && value !== "") {
+        params.set(key, value);
+      }
+    }
+
+    const url =
+      `https://api.football-data.org/v4/matches` +
+      (params.toString() ? `?${params.toString()}` : "");
 
     const response = await fetch(url, {
+      method: "GET",
       headers: {
-        "X-Auth-Token": apiKey,
-      },
+        "X-Auth-Token": apiKey
+      }
     });
 
     const data = await response.json();
 
-    return res.status(response.status).json(data);
+    if (!response.ok) {
+      return res.status(response.status).json({
+        error:
+          data?.message ||
+          data?.error ||
+          `Football API error: ${response.status}`
+      });
+    }
+
+    return res.status(200).json(data);
+
   } catch (error) {
     return res.status(500).json({
-      error: "Unable to connect to football-data.org",
+      error: "Impossible de contacter football-data.org."
     });
   }
 }
