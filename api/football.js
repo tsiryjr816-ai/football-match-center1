@@ -8,28 +8,38 @@ export default async function handler(req, res) {
   }
 
   try {
+    const {
+      id,
+      status,
+      dateFrom,
+      dateTo,
+      competitions,
+      ids,
+      limit
+    } = req.query || {};
+
     const params = new URLSearchParams();
 
-    const allowedParams = [
-      "status",
-      "dateFrom",
-      "dateTo",
-      "competitions",
-      "ids",
-      "limit"
-    ];
+    if (status) params.set("status", status);
+    if (dateFrom) params.set("dateFrom", dateFrom);
+    if (dateTo) params.set("dateTo", dateTo);
+    if (competitions) {
+      params.set("competitions", competitions);
+    }
+    if (ids) params.set("ids", ids);
+    if (limit) params.set("limit", limit);
 
-    for (const key of allowedParams) {
-      const value = req.query?.[key];
+    let endpoint = "/matches";
 
-      if (value !== undefined && value !== "") {
-        params.set(key, value);
-      }
+    if (id) {
+      endpoint = `/matches/${encodeURIComponent(id)}`;
     }
 
+    const query = params.toString();
+
     const url =
-      `https://api.football-data.org/v4/matches` +
-      (params.toString() ? `?${params.toString()}` : "");
+      `https://api.football-data.org/v4${endpoint}` +
+      (query && !id ? `?${query}` : "");
 
     const response = await fetch(url, {
       method: "GET",
@@ -52,6 +62,8 @@ export default async function handler(req, res) {
     return res.status(200).json(data);
 
   } catch (error) {
+    console.error(error);
+
     return res.status(500).json({
       error: "Impossible de contacter football-data.org."
     });
